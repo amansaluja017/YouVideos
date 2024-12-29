@@ -2,8 +2,9 @@
   "name": "project2",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodeman src/index.js"
   },
   "keywords": [
     "backend"
@@ -13,5 +14,8 @@
   "description": "",
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
   }
 }
