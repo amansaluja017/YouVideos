@@ -13,7 +13,20 @@ dotenv.config({
 
 const port = process.env.PORT || 3000;
 
+app.on('error', (error) => {
+    console.log('Error: ', error);
+    throw error
+}
+);
 connectDB()
+.then(() => {
+    app.listen(port, () => {
+        console.log(`Server is running on http://localhost:${port}`);
+    })
+})
+.catch((err) => {
+    console.log('mongodb connection failed: ', err);
+})
 
 // ( async () => {
 //     try {
