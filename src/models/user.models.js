@@ -79,7 +79,7 @@ userSchema.methods.generateToken =  function() {
         }
     )
 }
-  
+
     //generate refresh token
 userSchema.methods.generateRefreshToken = function() {
     return jwt.sign(
