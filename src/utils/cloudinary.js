@@ -5,22 +5,18 @@ cloudinary.config({
     cloud_name: process.env.CLOUD_NAME,
     api_key: process.env.API_KEY,
     api_secret: process.env.API_SECRET
-});
+})
 
-const uploadToCloudinary = async (filePath) => {
+const uploadToCloudinary = async (localFilePath) => {
     try {
-        if(!filePath) throw new Error('File path is required');
+        if(!localFilePath) return null
+        const response = await cloudinary.uploader.upload(localFilePath, {resource_type: "auto"})
+        fs.unlinkSync(localFilePath)
+        return response;
 
-        const image = await cloudinary.uploader.upload(filePath, {
-            resource_type: 'auto',
-        });
-        console.log('Uploading image to cloudinary', image.url);
-        return image.url;
-
-    }catch (err) {
-        fs.unlinkSync(filePath);
+    }catch(err) {
+        fs.unlinkSync(localFilePath)
         return null;
-        console.error(err);
     }
 }
 
