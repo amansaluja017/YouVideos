@@ -327,7 +327,71 @@ const updateUserCover = asyncHandler(async(req, res) => {
     return res.status(200).json(new ApiResponse(200, user, "Cover image updated successfully"))
 })
 
+const getUserChennelProfile = asyncHandler(async(req, res) => {
+    const {userName} = req.params
 
+    if(!userName?.trim()) {
+        throw new ApiError(400, "username is missing");
+
+    }
+
+    const chennel = await User.aggregate([
+        {
+            $match: {
+                userName: userName?.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "chennel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields: {
+                subscribersCount: {$size: "$subscribers"},
+                subscribedToCount: {$size: "$subscribedTo"},
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [request.user?._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                fullName: 1,
+                userName: 1,
+                avatar: 1,
+                email: 1,
+                coverImage: 1,
+                subscribersCount: 1,
+                subscribedToCount: 1,
+                isSubscribed: 1,
+                createdAt: 1
+            }
+        }
+    ])
+    console.log(chennel)
+
+    if(!chennel?.length) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res.status(200).json(new ApiResponse(200, chennel[0], "User profile fetched successfully"))
+})
 
 export {
     registerUser,
@@ -338,5 +402,6 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCover
+    updateUserCover,
+    getUserChennelProfile
 };
