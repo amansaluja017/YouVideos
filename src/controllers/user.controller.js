@@ -1,7 +1,9 @@
 import {asyncHandler} from "../utils/asyncHandler.js";
+import mongoose from "mongoose";
 import {ApiError} from "../utils/ApiError.js";
 import { User } from "../models/user.models.js";
-import {
+import 
+{
     uploadToCloudinary,
     deleteFromCloudinary
 } from "../utils/cloudinary.js";
@@ -369,6 +371,7 @@ const updateUserCover = asyncHandler(async(req, res) => {
 
 const getUserChennelProfile = asyncHandler(async(req, res) => {
     const {userName} = req.params
+    console.log(userName)
 
     if(!userName?.trim()) {
         throw new ApiError(400, "username is missing");
@@ -403,7 +406,7 @@ const getUserChennelProfile = asyncHandler(async(req, res) => {
                 subscribedToCount: {$size: "$subscribedTo"},
                 isSubscribed: {
                     $cond: {
-                        if: {$in: [request.user?._id, "$subscribers.subscriber"]},
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
                         then: true,
                         else: false
                     }
