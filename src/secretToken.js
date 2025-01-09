@@ -1,6 +1,6 @@
-import crypto from 'crypto';
+import crypto from "crypto";
 
-const secretKey1 = crypto.randomBytes(32).toString('hex');
-const secretKey2 = crypto.randomBytes(32).toString('hex');
+const secretKey1 = crypto.randomBytes(32).toString("hex");
+const secretKey2 = crypto.randomBytes(32).toString("hex");
 
-console.table({secretKey1, secretKey2});
+console.table({ secretKey1, secretKey2 });
