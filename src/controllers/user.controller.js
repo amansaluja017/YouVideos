@@ -383,7 +383,6 @@ const updateUserCover = asyncHandler(async (req, res) => {
 
 const getUserChennelProfile = asyncHandler(async (req, res) => {
   const { userName } = req.params;
-  console.log(userName);
 
   if (!userName?.trim()) {
     throw new ApiError(400, "username is missing");
