@@ -23,11 +23,28 @@ const uploadToCloudinary = async (localFilePath) => {
 
 const deleteFromCloudinary = async (public_id) => {
   try {
-    const response = await cloudinary.uploader.destroy(public_id);
+    await cloudinary.uploader.destroy(public_id);
   } catch (err) {
     console.error("Error deleting from cloudinary: ", err);
-    return null;
   }
 };
 
-export { uploadToCloudinary, deleteFromCloudinary };
+const deleteResourcesFromCloudinary = async (public_id) => {
+  try {
+    const imageResult = await cloudinary.uploader.destroy(public_id, {
+      resource_type: "image",
+    });
+    const videoResult = await cloudinary.uploader.destroy(public_id, {
+      resource_type: "video",
+    });
+    console.table([videoResult, imageResult]);
+  } catch (err) {
+    console.error("Error deleting resources from cloudinary: ", err);
+  }
+};
+
+export {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+  deleteResourcesFromCloudinary,
+};

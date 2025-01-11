@@ -1,13 +1,15 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import mongoose from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.models.js";
 import { Video } from "../models/video.models.js";
 import {
   uploadToCloudinary,
   deleteFromCloudinary,
+  deleteResourcesFromCloudinary,
 } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import fs from "fs";
 
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
@@ -23,6 +25,8 @@ const publishAVideo = asyncHandler(async (req, res) => {
   if (!(title && description)) {
     throw new ApiError(401, "Please provide a title and description");
   }
+
+  const owner = await User.findById(req.user._id).select("userName fullName");
 
   const videoFilePath = req.files?.videoFile[0]?.path;
   const thumbnailFilePath = req.files?.thumbnail[0]?.path;
@@ -46,18 +50,18 @@ const publishAVideo = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Please provide a thumbnail");
   }
 
+  const duration = videoFile.duration;
+
   const createVideo = await Video.create({
     title,
     description,
     thumbnail: thumbnail.url,
     videoFile: videoFile.url,
+    owner,
+    duration,
   });
 
-  const createdVideo = await Video.findById(createVideo.id);
-
-  if (!createdVideo) {
-    throw new ApiError(500, "internal error: video upload failed");
-  }
+  const createdVideo = await Video.findById(createVideo._id);
 
   return res
     .status(200)
@@ -82,80 +86,127 @@ const updateVideoDetails = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   const { title, description } = req.body;
 
-  if (!title) {
-    throw new ApiError(400, "Enter new video title");
+  const user = await User.findById(req.user._id).select("_id");
+  const userId = user._id;
+
+  const video = await Video.findById(videoId).select("owner");
+  const ownerId = video.owner;
+
+  if (ownerId.equals(userId) === false) {
+    throw new ApiError(403, "You are not authorized to update this video");
   }
 
-  if (!description) {
-    throw new ApiError(400, "Enter new video description");
-  }
+  if (title) {
+    if (!title) {
+      throw new ApiError(400, "Enter video title");
+    }
 
-  if (!(title && description)) {
-    throw new ApiError(400, "Enter new video title and description");
-  }
+    const videoTitle = await Video.findById(videoId).select("title");
+    const existedTitle = videoTitle.title;
 
-  const videoDetails =
-    await Video.findById(videoId).select("title description");
+    if (existedTitle === title) {
+      throw new ApiError(400, "Enter new video title");
+    }
 
-  if (videoDetails.title === title) {
-    throw new ApiError(400, "Enter new video title");
-  }
-
-  if (videoDetails.description === description) {
-    throw new ApiError(400, "Enter new video description");
-  }
-
-  const thumbnailFilePath = req.file?.path;
-
-  if (!thumbnailFilePath) {
-    throw new ApiError(404, "Thumbnail file not found");
-  }
-
-  const thumbnail = await uploadToCloudinary(thumbnailFilePath);
-
-  if (!thumbnail) {
-    throw new ApiError(404, "Failed to upload thumbnail");
-  }
-
-  const deleteThumbnail = await Video.findById(videoId).select("thumbnail");
-
-  if (deleteThumbnail && deleteThumbnail.thumbnail) {
-    const videoThumbnail = deleteThumbnail.thumbnail;
-    const public_id = videoThumbnail.split("/").slice(-1)[0].split(".")[0];
-    await deleteFromCloudinary(public_id);
-  }
-
-  const video = await Video.findByIdAndUpdate(
-    videoId,
-    {
+    await Video.findByIdAndUpdate(videoId, {
       $set: {
         title,
+      },
+    });
+  }
+
+  if (description) {
+    if (!description) {
+      throw new ApiError(400, "Enter video description");
+    }
+
+    const videodescription =
+      await Video.findById(videoId).select("description");
+    const existeddescription = videodescription.description;
+
+    if (existeddescription === description) {
+      throw new ApiError(400, "Enter new video description");
+    }
+
+    await Video.findByIdAndUpdate(videoId, {
+      $set: {
         description,
+      },
+    });
+  }
+
+  if (req.file?.path) {
+    const thumbnailFilePath = req.file?.path;
+    const thumbnail = await uploadToCloudinary(thumbnailFilePath);
+
+    if (!thumbnail) {
+      throw new ApiError(500, "Thumbnail upload failed");
+    }
+
+    const video = await Video.findById(videoId).select("thumbnail");
+    const url = video.thumbnail;
+    const public_id = url.split("/").slice(-1)[0].split(".")[0];
+    await deleteFromCloudinary(public_id);
+
+    await Video.findByIdAndUpdate(videoId, {
+      $set: {
         thumbnail: thumbnail.url,
       },
-    },
-    { new: true }
-  );
+    });
+  }
+
+  const data = await Video.findById(videoId);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, video, "video details updated"));
+    .json(new ApiResponse(200, data, "video details updated"));
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
+  const user = await User.findById(req.user._id).select("_id");
+  const userId = user._id;
 
-  const video = await Video.findById(videoId);
+  const video = await Video.findById(videoId).select("owner");
+  const ownerId = video.owner;
 
-  if (!video) {
+  if (ownerId.equals(userId) === false) {
+    throw new ApiError(403, "You are not authorized to update this video");
+  }
+
+  try {
+    const thumbnail = await Video.findById(videoId).select("thumbnail");
+    const thumbnalUrl = thumbnail.thumbnail;
+
+    const videoFile = await Video.findById(videoId).select("videoFile");
+    const videoFileUrl = videoFile.videoFile;
+
+    const thumbnailPublic_id = thumbnalUrl
+      .split("/")
+      .slice(-1)[0]
+      .split(".")[0];
+    const videoFilePublic_id = videoFileUrl
+      .split("/")
+      .slice(-1)[0]
+      .split(".")[0];
+
+    await deleteResourcesFromCloudinary(videoFilePublic_id);
+    await deleteResourcesFromCloudinary(thumbnailPublic_id);
+  } catch (err) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  const deleteVideo = await Video.findById(videoId);
+
+  if (!deleteVideo) {
     throw new ApiError(404, "Video not found");
   } else {
-    await Video.deleteOne(video);
+    await Video.deleteOne(deleteVideo);
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "video deleted successfully"));
+    .json(new ApiResponse(200, deleteVideo._id, "video deleted successfully"));
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
@@ -163,7 +214,6 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
   const video = await Video.findById(videoId).select("isPublished");
   const videoStatus = video.isPublished;
-  console.log(videoStatus);
 
   await Video.findByIdAndUpdate(videoId, {
     $set: {
