@@ -53,34 +53,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
         $unwind: "$createdBy",
       },
       {
-        $lookup: {
-          from: "likes",
-          localField: "_id",
-          foreignField: "video",
-          as: "likes",
-        },
-      },
-      {
-        $lookup: {
-          from: "comments",
-          localField: "_id",
-          foreignField: "video",
-          as: "comments",
-        },
-      },
-      {
-        $addFields: {
-          likesCount: { $size: "$likes" },
-          commentsCount: { $size: "$comments" },
-        },
-      },
-      {
         $project: {
           _id: 0,
           isPublished: 0,
           owner: 0,
           updatedAt: 0,
-          likes: 0,
           __v: 0,
           createdBy: {
             _id: 0,

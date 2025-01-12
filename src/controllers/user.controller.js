@@ -437,7 +437,6 @@ const getUserChennelProfile = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  console.log(chennel);
 
   if (!chennel?.length) {
     throw new ApiError(404, "User not found");
