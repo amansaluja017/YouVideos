@@ -1,5 +1,5 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import mongoose, { isValidObjectId } from "mongoose";
+import { isValidObjectId } from "mongoose";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.models.js";
 import { Video } from "../models/video.models.js";
@@ -9,7 +9,113 @@ import {
   deleteResourcesFromCloudinary,
 } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import fs from "fs";
+
+const getAllVideos = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+
+  try {
+    if (!userId) {
+      throw new ApiError(401, "User not authenticated");
+    }
+
+    if (!isValidObjectId(userId)) {
+      throw new ApiError(400, "Invalid user ID");
+    }
+
+    const user = await User.findById(req.user?._id);
+
+    if (!user) {
+      throw new ApiError(401, "login first");
+    }
+
+    const aggregateQuery = Video.aggregate([
+      {
+        $match: {
+          $or: [
+            {
+              title: { $regex: query, $options: "i" },
+            },
+            {
+              description: { $regex: query, $options: "i" },
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "createdBy",
+        },
+      },
+      {
+        $unwind: "$createdBy",
+      },
+      {
+        $lookup: {
+          from: "likes",
+          localField: "_id",
+          foreignField: "video",
+          as: "likes",
+        },
+      },
+      {
+        $lookup: {
+          from: "comments",
+          localField: "_id",
+          foreignField: "video",
+          as: "comments",
+        },
+      },
+      {
+        $addFields: {
+          likesCount: { $size: "$likes" },
+          commentsCount: { $size: "$comments" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          isPublished: 0,
+          owner: 0,
+          updatedAt: 0,
+          likes: 0,
+          __v: 0,
+          createdBy: {
+            _id: 0,
+            updatedAt: 0,
+            refreshAccessToken: 0,
+            refreshToken: 0,
+            coverImage: 0,
+            password: 0,
+            watchHistory: 0,
+            __v: 0,
+          },
+        },
+      },
+    ]);
+
+    const options = {
+      page: { page },
+      limit: { limit },
+      sortBy: { sortBy },
+      sortType: { sortType },
+      select: "title description createdAt owner views duration",
+    };
+
+    Video.aggregatePaginate(aggregateQuery, options).then(function (result) {
+      return res
+        .status(200)
+        .json(new ApiResponse(200, result, "videos fetched successfully"));
+    });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json(new ApiResponse(500, {}, "Error processing request"));
+  }
+});
 
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
@@ -227,6 +333,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 });
 
 export {
+  getAllVideos,
   publishAVideo,
   getVideoById,
   updateVideoDetails,

@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  getAllVideos,
   publishAVideo,
   getVideoById,
   updateVideoDetails,
@@ -12,6 +13,8 @@ import { upload } from "../middlewares/multer.middleware.js";
 const router = express.Router();
 
 router.use(verifyJWT);
+
+router.route("/all-videos").get(getAllVideos);
 
 router.route("/publish-video").post(
   upload.fields([
