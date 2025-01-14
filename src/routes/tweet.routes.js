@@ -12,7 +12,7 @@ const router = express.Router();
 router.use(verifyJWT);
 
 router.route("/getUserTweet").get(getUserTweets);
-router.route("/addTweet").patch(createTweet);
+router.route("/addTweet").post(createTweet);
 router.route("/updateTweet/:tweetId").patch(updateTweet);
 router.route("/deleteTweet/:tweetId").delete(deleteTweet);
 
